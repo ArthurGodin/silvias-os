@@ -15,6 +15,10 @@ dist/
 .DS_Store
 Thumbs.db
 
+# Screenshots de teste (gerados pelo agent-browser)
+test-*.png
+prod-*.png
+
 .vscode/
 .idea/
 
