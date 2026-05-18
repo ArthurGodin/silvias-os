@@ -23,11 +23,10 @@ export async function middleware(req: NextRequest) {
   const isAccount = path.startsWith("/conta");
   const isStaffArea = path.startsWith("/admin") || path.startsWith("/equipe");
 
-  // Dev mode sem Supabase: deixa passar (mocks).
+  // Sem credenciais Supabase configuradas: libera tudo (modo dev sem banco).
   if (!supabaseUrl || !supabaseAnon) return NextResponse.next();
 
   // Dev local: opt-in pra ativar auth real do admin via ADMIN_AUTH_ENABLED=true.
-  // Sem isso, libera /admin e /equipe pra testar UI sem precisar criar conta.
   // /conta SEMPRE exige auth (cliente final).
   if (
     isStaffArea &&
@@ -37,62 +36,85 @@ export async function middleware(req: NextRequest) {
     return NextResponse.next();
   }
 
-  let response = NextResponse.next({ request: req });
+  // Em runtime de Cloudflare Workers, algumas chamadas podem lançar
+  // (ex: cookies malformados ou Supabase indisponível). Tratamos como
+  // "não autenticado" — redireciona pro login em vez de 500.
+  try {
+    let response = NextResponse.next({ request: req });
 
-  const supabase = createServerClient(supabaseUrl, supabaseAnon, {
-    cookies: {
-      getAll: () => req.cookies.getAll(),
-      setAll: (cookiesToSet: { name: string; value: string; options?: Record<string, unknown> }[]) => {
-        cookiesToSet.forEach(({ name, value, options }) => {
-          response.cookies.set(name, value, options as never);
-        });
+    const supabase = createServerClient(supabaseUrl, supabaseAnon, {
+      cookies: {
+        getAll: () => req.cookies.getAll(),
+        setAll: (
+          cookiesToSet: {
+            name: string;
+            value: string;
+            options?: Record<string, unknown>;
+          }[],
+        ) => {
+          cookiesToSet.forEach(({ name, value, options }) => {
+            try {
+              response.cookies.set(name, value, options as never);
+            } catch {
+              // Silencia: alguns response objects do edge não aceitam set após body.
+            }
+          });
+        },
       },
-    },
-  });
+    });
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
 
-  if (!user) {
-    const url = req.nextUrl.clone();
-    if (isAccount) {
-      url.pathname = "/conta/entrar";
-      url.searchParams.set("next", path);
-    } else {
-      url.pathname = "/admin/login";
-      url.searchParams.set("next", path);
+    if (!user) {
+      const url = req.nextUrl.clone();
+      if (isAccount) {
+        url.pathname = "/conta/entrar";
+        url.searchParams.set("next", path);
+      } else {
+        url.pathname = "/admin/login";
+        url.searchParams.set("next", path);
+      }
+      return NextResponse.redirect(url);
     }
-    return NextResponse.redirect(url);
-  }
 
-  // /conta: qualquer user autenticado entra. Não exige role de staff.
-  if (isAccount) return response;
+    // /conta: qualquer user autenticado entra. Não exige role de staff.
+    if (isAccount) return response;
 
-  // /admin e /equipe: bloqueio por role.
-  const { data: staffRow } = await supabase
-    .from("staff")
-    .select("role,is_active,deleted_at")
-    .eq("user_id", user.id)
-    .maybeSingle();
+    // /admin e /equipe: bloqueio por role.
+    const { data: staffRow } = await supabase
+      .from("staff")
+      .select("role,is_active,deleted_at")
+      .eq("user_id", user.id)
+      .maybeSingle();
 
-  const isActiveStaff =
-    staffRow && staffRow.is_active && !staffRow.deleted_at;
+    const isActiveStaff =
+      staffRow && staffRow.is_active && !staffRow.deleted_at;
 
-  if (!isActiveStaff) {
+    if (!isActiveStaff) {
+      const url = req.nextUrl.clone();
+      url.pathname = "/admin/login";
+      url.searchParams.set("error", "unauthorized");
+      return NextResponse.redirect(url);
+    }
+
+    if (path.startsWith("/admin") && staffRow.role === "stylist") {
+      const url = req.nextUrl.clone();
+      url.pathname = "/equipe";
+      return NextResponse.redirect(url);
+    }
+
+    return response;
+  } catch (err) {
+    console.error("[middleware] erro inesperado:", err);
+    // Fail closed: redireciona pra login ao invés de mostrar 500.
     const url = req.nextUrl.clone();
-    url.pathname = "/admin/login";
-    url.searchParams.set("error", "unauthorized");
+    url.pathname = isAccount ? "/conta/entrar" : "/admin/login";
+    url.searchParams.set("error", "auth_failed");
+    url.searchParams.set("next", path);
     return NextResponse.redirect(url);
   }
-
-  if (path.startsWith("/admin") && staffRow.role === "stylist") {
-    const url = req.nextUrl.clone();
-    url.pathname = "/equipe";
-    return NextResponse.redirect(url);
-  }
-
-  return response;
 }
 
 export const config = {
