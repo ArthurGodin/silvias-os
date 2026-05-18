@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { createClient } from "@/lib/supabase/server";
+import { createAnonClient } from "@/lib/supabase/admin";
+import { getEnv } from "@/lib/env";
 
 const bodySchema = z.object({
   email: z.string().email("E-mail inválido"),
@@ -18,11 +19,10 @@ export async function POST(request: Request) {
   }
 
   const { email, redirectTo } = parsed.data;
-  const supabase = await createClient();
+  const supabase = createAnonClient();
 
   const siteUrl =
-    process.env.NEXT_PUBLIC_SITE_URL ??
-    new URL(request.url).origin;
+    getEnv().NEXT_PUBLIC_SITE_URL ?? new URL(request.url).origin;
 
   const { error } = await supabase.auth.signInWithOtp({
     email,

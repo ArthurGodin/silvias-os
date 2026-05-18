@@ -4,7 +4,8 @@ import { getCombo } from "@/lib/data/combos";
 import { sendConfirmationEmail } from "@/lib/email/send-confirmation";
 import { createPixPayment } from "@/lib/pix/mercadopago";
 import { upsertCalendarEvent } from "@/lib/calendar/google-calendar";
-import { createAdminClient } from "@/lib/supabase/admin";
+import { createAdminClient, createAnonClient } from "@/lib/supabase/admin";
+import { getEnv } from "@/lib/env";
 
 export async function POST(request: Request) {
   const json = await request.json().catch(() => null);
@@ -220,9 +221,11 @@ export async function POST(request: Request) {
     .insert(bsRows);
   if (bsErr) console.error("[booking_services] insert failed:", bsErr);
 
+  const env = getEnv();
+
   // 9) Pagamento Pix (opcional, se configurado)
   let payment: Awaited<ReturnType<typeof createPixPayment>> | null = null;
-  if (needsDeposit && process.env.MERCADOPAGO_ACCESS_TOKEN) {
+  if (needsDeposit && env.MERCADOPAGO_ACCESS_TOKEN) {
     payment = await createPixPayment({
       bookingId,
       amountCents: depositCents,
@@ -247,7 +250,7 @@ export async function POST(request: Request) {
   }
 
   // 10) Google Calendar (opcional)
-  if (process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL) {
+  if (env.GOOGLE_SERVICE_ACCOUNT_EMAIL) {
     upsertCalendarEvent({
       bookingId,
       title: `${data.name} · ${serviceLabel}`,
@@ -257,25 +260,33 @@ export async function POST(request: Request) {
     }).catch((err) => console.error("[calendar] falha não-crítica:", err));
   }
 
-  // 11) Magic link (opcional, se cliente pediu criar conta)
+  // 11) Magic link (opcional, se cliente pediu criar conta).
+  // Precisa do cliente ANON — service role não consegue chamar signInWithOtp.
   if (data.consents.create_account) {
-    const siteUrl =
-      process.env.NEXT_PUBLIC_SITE_URL ?? new URL(request.url).origin;
-    supabase.auth
-      .signInWithOtp({
+    try {
+      const anon = createAnonClient();
+      const siteUrl =
+        env.NEXT_PUBLIC_SITE_URL ?? new URL(request.url).origin;
+      const { error } = await anon.auth.signInWithOtp({
         email: data.email,
         options: {
           emailRedirectTo: `${siteUrl}/conta/entrar/callback?next=${encodeURIComponent("/conta")}`,
           shouldCreateUser: true,
         },
-      })
-      .catch((err) =>
-        console.error("[magic-link] pos-reserva falha não-crítica:", err),
-      );
+      });
+      if (error) {
+        console.error(
+          "[magic-link] pos-reserva falha não-crítica:",
+          error.message,
+        );
+      }
+    } catch (err) {
+      console.error("[magic-link] pos-reserva exception:", err);
+    }
   }
 
   // 12) E-mail de confirmação (opcional)
-  if (process.env.RESEND_API_KEY) {
+  if (env.RESEND_API_KEY) {
     sendConfirmationEmail({
       to: data.email,
       name: data.name,
