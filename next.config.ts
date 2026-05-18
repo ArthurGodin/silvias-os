@@ -1,7 +1,9 @@
 import type { NextConfig } from "next";
+import { initOpenNextCloudflareForDev } from "@opennextjs/cloudflare";
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
+  typedRoutes: true,
   images: {
     remotePatterns: [
       { protocol: "https", hostname: "images.unsplash.com" },
@@ -9,9 +11,10 @@ const nextConfig: NextConfig = {
       { protocol: "https", hostname: "api.dicebear.com" },
     ],
   },
-  experimental: {
-    typedRoutes: true,
-  },
 };
+
+// Habilita acesso a bindings/env do Cloudflare em desenvolvimento local
+// via `npm run dev`. No build de produção, não faz nada.
+initOpenNextCloudflareForDev();
 
 export default nextConfig;
