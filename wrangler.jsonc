@@ -14,10 +14,12 @@
   "observability": {
     "enabled": true
   },
-  // Variáveis públicas (não-secrets). Disponíveis em process.env e em
-  // getCloudflareContext().env. Para secrets (service_role_key etc),
-  // configurar pelo painel Cloudflare → Variables and Secrets.
+  // Variáveis públicas (não-secrets). Disponíveis tanto em process.env quanto
+  // em getCloudflareContext().env. Para secrets (SUPABASE_SERVICE_ROLE_KEY etc),
+  // continuar configurando pelo painel Cloudflare → Variables and Secrets.
   "vars": {
-    "NEXT_PUBLIC_SITE_URL": "https://silvias-os.arthurgodinho155.workers.dev"
+    "NEXT_PUBLIC_SITE_URL": "https://silvias-os.arthurgodinho155.workers.dev",
+    "NEXT_PUBLIC_SUPABASE_URL": "https://vwyahtgelntuyynczjrm.supabase.co",
+    "NEXT_PUBLIC_SUPABASE_ANON_KEY": "sb_publishable_cXTOQZMHmHe7Otm0YGS1HA_iSmExJGD"
   }
 }
