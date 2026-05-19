@@ -181,7 +181,9 @@ export async function POST(request: Request) {
       ? `${combo.title} (${dbServices.map((s) => s.name).join(" + ")})`
       : dbServices.map((s) => s.name).join(" + ");
 
-  // 7) Criar booking
+  // 7) Criar booking. cancel_token e gerado por default na DB (uuid v4) e
+  // serve pra autorizar o cancelamento via link - blinda contra IDOR. Buscamos
+  // de volta pra incluir nos links.
   const { data: dbBooking, error: bookingErr } = await supabase
     .from("bookings")
     .insert({
@@ -196,7 +198,7 @@ export async function POST(request: Request) {
       combo_slug: isComboMatch && combo ? combo.slug : null,
       client_notes: data.notes || null,
     })
-    .select("id")
+    .select("id, cancel_token")
     .single();
 
   if (bookingErr || !dbBooking) {
@@ -207,6 +209,8 @@ export async function POST(request: Request) {
     );
   }
   const bookingId = dbBooking.id;
+  const cancelToken: string | null =
+    (dbBooking as { cancel_token?: string | null }).cancel_token ?? null;
 
   // 8) Criar booking_services (N:M)
   const bsRows = dbServices.map((sv, i) => ({
@@ -293,12 +297,14 @@ export async function POST(request: Request) {
       serviceName: serviceLabel,
       scheduledAt,
       bookingId,
+      cancelToken: cancelToken ?? undefined,
       pixCopyPaste: payment?.pixCopyPaste,
     }).catch((err) => console.error("[email] falha não-crítica:", err));
   }
 
   return NextResponse.json({
     id: bookingId,
+    cancelToken,
     status: needsDeposit ? "pending_payment" : "confirmed",
     payment: payment
       ? {

@@ -302,9 +302,11 @@ export function BookingWizard() {
                   needsDeposit={needsDeposit}
                   combo={preCombo}
                   isComboMatch={isComboMatch}
-                  onConfirmed={(id) =>
-                    router.push(`/agendar/sucesso?id=${id}` as never)
-                  }
+                  onConfirmed={(id, cancelToken) => {
+                    const qs = new URLSearchParams({ id });
+                    if (cancelToken) qs.set("cancel", cancelToken);
+                    router.push(`/agendar/sucesso?${qs}` as never);
+                  }}
                 />
               )}
           </motion.div>
@@ -1056,7 +1058,7 @@ function ReviewStep({
   needsDeposit: boolean;
   combo: Combo | null;
   isComboMatch: boolean;
-  onConfirmed: (id: string) => void;
+  onConfirmed: (id: string, cancelToken?: string) => void;
 }) {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -1087,8 +1089,11 @@ function ReviewStep({
         );
         return;
       }
-      const data = await res.json();
-      onConfirmed(data.id);
+      const data = (await res.json()) as {
+        id: string;
+        cancelToken?: string | null;
+      };
+      onConfirmed(data.id, data.cancelToken ?? undefined);
     } catch {
       setError("Falha de rede. Verifique sua conexão.");
     } finally {

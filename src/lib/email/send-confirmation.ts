@@ -7,6 +7,7 @@ type Params = {
   serviceName: string;
   scheduledAt: Date;
   bookingId: string;
+  cancelToken?: string;
   pixCopyPaste?: string;
 };
 
@@ -71,8 +72,10 @@ export async function sendConfirmationEmail(params: Params) {
             </div>
           ` : ""}
 
-          <p style="margin-top:40px;font-size:14px;color:#8E8892;">
-            Precisa cancelar ou remarcar? Responda este e-mail ou nos chame no WhatsApp.
+          <p style="margin-top:40px;font-size:14px;color:#393F49;line-height:1.6;">
+            <a href="${process.env.NEXT_PUBLIC_SITE_URL ?? "https://silviashair.com.br"}/agendamento/${params.bookingId}${params.cancelToken ? `?cancel=${params.cancelToken}` : ""}" style="color:#8C6F3A;text-decoration:underline;">Ver, remarcar ou cancelar seu agendamento</a>
+            <br/>
+            <span style="font-size:12px;color:#8E8892;">Cancelamento online até 24h antes. Depois disso, fale com a recepção pelo WhatsApp.</span>
           </p>
         </td></tr>
         <tr><td style="padding:24px 40px 40px;border-top:1px solid rgba(46,56,66,0.16);">

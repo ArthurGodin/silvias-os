@@ -22,7 +22,7 @@ import { StatusBadge } from "@/components/admin/status-badge";
 import { CancelAction } from "@/components/booking/cancel-action";
 import {
   canCancel,
-  lookupBooking,
+  lookupBookingWithToken,
   CANCEL_WINDOW_HOURS,
 } from "@/lib/booking/lookup";
 import { formatBRL } from "@/lib/utils";
@@ -31,12 +31,23 @@ export const dynamic = "force-dynamic";
 
 export default async function AgendamentoView({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ cancel?: string }>;
 }) {
   const { id } = await params;
-  const booking = await lookupBooking(id);
+  const { cancel: providedToken } = await searchParams;
+  const booking = await lookupBookingWithToken(id);
   if (!booking) notFound();
+
+  // Token de cancelamento bate? Se sim, o botao de cancelar aparece.
+  // Se nao bate, view e permitido mas cancel fica indisponivel - usuario
+  // precisa abrir o link do email/sucesso pra ter o token.
+  // Compatibilidade: se o banco ainda nao tem cancel_token, libera por padrao.
+  const cancelTokenMatches =
+    booking._cancelToken == null ||
+    (typeof providedToken === "string" && providedToken === booking._cancelToken);
 
   const cancelCheck = canCancel(booking);
   const isCancelled =
@@ -204,15 +215,36 @@ export default async function AgendamentoView({
               </div>
 
               <div className="mt-6 space-y-4">
-                {cancelCheck.allowed ? (
+                {cancelCheck.allowed && cancelTokenMatches ? (
                   <>
                     <p className="text-[13px] text-ink-500 leading-[1.6]">
                       Cancelamento online disponível até{" "}
                       <strong>{CANCEL_WINDOW_HOURS}h</strong> antes do horário.
                       Depois disso, fale com a recepção.
                     </p>
-                    <CancelAction bookingId={booking.id} />
+                    <CancelAction
+                      bookingId={booking.id}
+                      cancelToken={providedToken}
+                    />
                   </>
+                ) : cancelCheck.allowed && !cancelTokenMatches ? (
+                  <div className="border border-[var(--color-gold)]/40 bg-gold-mist/30 p-4">
+                    <p className="text-[13px] text-ink-700 leading-[1.55]">
+                      Pra cancelar, abra o <strong>link de cancelamento</strong>{" "}
+                      que você recebeu no e-mail de confirmação. Ele tem um
+                      código de segurança que só você tem.
+                    </p>
+                    {booking.unitPhone && (
+                      <a
+                        href={`https://wa.me/55${booking.unitPhone.replace(/\D/g, "")}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="mt-3 inline-block text-[12px] uppercase tracking-[0.2em] editorial-link font-medium"
+                      >
+                        Ou falar pelo WhatsApp →
+                      </a>
+                    )}
+                  </div>
                 ) : isCancelled ? (
                   <div className="flex items-start gap-2 text-[13px] text-ink-500">
                     <XCircle className="h-4 w-4 mt-0.5 flex-none" />

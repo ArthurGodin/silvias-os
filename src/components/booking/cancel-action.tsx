@@ -6,7 +6,13 @@ import { AlertTriangle, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Toast, useToast } from "@/components/ui/toast";
 
-export function CancelAction({ bookingId }: { bookingId: string }) {
+export function CancelAction({
+  bookingId,
+  cancelToken,
+}: {
+  bookingId: string;
+  cancelToken?: string;
+}) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [reason, setReason] = useState("");
@@ -22,11 +28,28 @@ export function CancelAction({ bookingId }: { bookingId: string }) {
       const res = await fetch(`/api/bookings/${bookingId}/cancel`, {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ reason: reason || undefined }),
+        body: JSON.stringify({
+          reason: reason || undefined,
+          cancelToken: cancelToken || undefined,
+        }),
       });
       if (!res.ok) {
-        const body = await res.json().catch(() => null);
-        setError(body?.error ?? "Falha ao cancelar");
+        const body = (await res.json().catch(() => null)) as {
+          error?: string;
+        } | null;
+        // Mensagens contextuais por status
+        const msg =
+          body?.error ??
+          (res.status === 403
+            ? "Esse link de cancelamento não é válido. Use o link que recebeu no e-mail."
+            : res.status === 409
+              ? "Não dá pra cancelar agora — o prazo de 24h pode ter passado, ou o agendamento já foi cancelado."
+              : res.status === 404
+                ? "Agendamento não encontrado. Verifique o link."
+                : res.status >= 500
+                  ? "Nosso servidor falhou. Tente em 1 minuto ou fale no WhatsApp."
+                  : "Falha ao cancelar. Tente de novo.");
+        setError(msg);
         setSubmitting(false);
         return;
       }
@@ -34,11 +57,14 @@ export function CancelAction({ bookingId }: { bookingId: string }) {
       setSubmitting(false);
       toast.show("Agendamento cancelado", {
         tone: "success",
-        description: "Seu horário foi liberado. Se houver sinal pago, o reembolso é integral.",
+        description:
+          "Seu horário foi liberado. Se houver sinal pago, o reembolso é integral.",
       });
       startTransition(() => router.refresh());
     } catch {
-      setError("Falha de rede");
+      setError(
+        "Sua conexão caiu durante o cancelamento. Verifique a internet e tente de novo.",
+      );
       setSubmitting(false);
     }
   }

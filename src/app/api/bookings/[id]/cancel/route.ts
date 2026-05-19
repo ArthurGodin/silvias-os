@@ -1,10 +1,11 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { canCancel, lookupBooking } from "@/lib/booking/lookup";
+import { canCancel, lookupBooking, verifyCancelToken } from "@/lib/booking/lookup";
 
 const bodySchema = z.object({
   reason: z.string().max(280).optional(),
+  cancelToken: z.string().min(8).optional(),
 });
 
 export async function POST(
@@ -21,6 +22,21 @@ export async function POST(
     );
   }
 
+  const json = await request.json().catch(() => ({}));
+  const parsed = bodySchema.safeParse(json);
+  const reason = parsed.success ? parsed.data.reason : undefined;
+  const cancelToken = parsed.success ? parsed.data.cancelToken : undefined;
+
+  // Token de cancelamento: protege contra IDOR. So quem recebeu o email/tem o
+  // link pessoal consegue cancelar. View ainda e permitida pelo UUID puro.
+  const tokenCheck = await verifyCancelToken(id, cancelToken);
+  if (!tokenCheck.ok) {
+    return NextResponse.json(
+      { error: tokenCheck.reason ?? "Link inválido" },
+      { status: 403 },
+    );
+  }
+
   const check = canCancel(booking);
   if (!check.allowed) {
     return NextResponse.json(
@@ -28,10 +44,6 @@ export async function POST(
       { status: 409 },
     );
   }
-
-  const json = await request.json().catch(() => ({}));
-  const parsed = bodySchema.safeParse(json);
-  const reason = parsed.success ? parsed.data.reason : undefined;
 
   const supabase = createAdminClient();
   const { error } = await supabase
