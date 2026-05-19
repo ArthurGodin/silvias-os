@@ -2,9 +2,43 @@ import type { Metadata } from "next";
 import { Check, Mail, MessageSquare, ArrowRight, UserCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { SectionDivider } from "@/components/ui/section-divider";
+import { PixPayment } from "@/components/booking/pix-payment";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 export const dynamic = "force-dynamic";
+
+type PixData = {
+  amountCents: number;
+  qrBase64: string;
+  copyPaste: string;
+  expiresAt: string | null;
+};
+
+async function pendingPixForBooking(
+  bookingId: string,
+): Promise<PixData | null> {
+  try {
+    const admin = createAdminClient();
+    const { data } = await admin
+      .from("payments")
+      .select("amount_cents, pix_qr_base64, pix_copy_paste, expires_at, status")
+      .eq("booking_id", bookingId)
+      .eq("status", "pending")
+      .order("created_at", { ascending: false })
+      .limit(1);
+    const row = data?.[0];
+    if (!row || !row.pix_qr_base64 || !row.pix_copy_paste) return null;
+    return {
+      amountCents: row.amount_cents,
+      qrBase64: row.pix_qr_base64,
+      copyPaste: row.pix_copy_paste,
+      expiresAt: row.expires_at,
+    };
+  } catch (err) {
+    console.error("[sucesso] pendingPix lookup failed:", err);
+    return null;
+  }
+}
 
 export const metadata: Metadata = {
   title: "Agendamento confirmado",
@@ -45,14 +79,17 @@ async function bookingHasAccountConsent(
 export default async function SucessoPage({
   searchParams,
 }: {
-  searchParams: Promise<{ id?: string }>;
+  searchParams: Promise<{ id?: string; cancel?: string }>;
 }) {
-  const { id } = await searchParams;
+  const { id, cancel } = await searchParams;
   const shortId = (id ?? "").slice(0, 8).toUpperCase();
-  const trackingUrl = id ? `/agendamento/${id}` : null;
-  const { createdAccount, email } = id
-    ? await bookingHasAccountConsent(id)
-    : { createdAccount: false, email: null };
+  const trackingUrl = id
+    ? `/agendamento/${id}${cancel ? `?cancel=${cancel}` : ""}`
+    : null;
+  const [{ createdAccount, email }, pix] = await Promise.all([
+    id ? bookingHasAccountConsent(id) : Promise.resolve({ createdAccount: false, email: null }),
+    id ? pendingPixForBooking(id) : Promise.resolve(null),
+  ]);
 
   return (
     <section className="container-editorial pt-40 lg:pt-56 pb-32">
@@ -75,6 +112,16 @@ export default async function SucessoPage({
           </p>
           {shortId && (
             <p className="mt-8 text-eyebrow">Código · {shortId}</p>
+          )}
+
+          {pix && id && (
+            <PixPayment
+              bookingId={id}
+              amountCents={pix.amountCents}
+              qrBase64={pix.qrBase64}
+              copyPaste={pix.copyPaste}
+              expiresAt={pix.expiresAt}
+            />
           )}
 
           {createdAccount && email && (
