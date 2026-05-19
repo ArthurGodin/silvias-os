@@ -16,3 +16,16 @@ create index bookings_cancel_token_idx on bookings(cancel_token);
 -- Quando o cron envia, marca aqui. Reexecucoes do mesmo dia nao reenviam.
 alter table bookings
   add column reminder_sent_at timestamptz;
+
+-- Rate limiting persistido. Fixed window por chave (ip:bucket).
+-- Limpeza opcional via cron mensal: delete from rate_limit_buckets where
+-- window_start < now() - interval '7 days'.
+create table rate_limit_buckets (
+  key text not null,
+  window_start timestamptz not null,
+  count int not null default 0,
+  primary key (key, window_start)
+);
+create index rate_limit_buckets_window_idx on rate_limit_buckets(window_start);
+alter table rate_limit_buckets enable row level security;
+-- Nenhuma policy de leitura: somente service-role acessa.

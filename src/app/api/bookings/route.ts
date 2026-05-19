@@ -6,8 +6,27 @@ import { createPixPayment } from "@/lib/pix/mercadopago";
 import { upsertCalendarEvent } from "@/lib/calendar/google-calendar";
 import { createAdminClient, createAnonClient } from "@/lib/supabase/admin";
 import { getEnv } from "@/lib/env";
+import { checkRateLimit, clientKey } from "@/lib/rate-limit";
 
 export async function POST(request: Request) {
+  // Rate limit: 10 bookings por IP em 10 min. Protege contra spam de
+  // agendamentos fake (entopem agenda, geram emails desnecessarios).
+  const limit = await checkRateLimit(clientKey(request, "booking-create"), {
+    limit: 10,
+    windowSeconds: 600,
+  });
+  if (!limit.allowed) {
+    return NextResponse.json(
+      {
+        error: `Muitas reservas em pouco tempo. Tente de novo em ${Math.ceil(limit.retryAfterSeconds / 60)} minuto(s).`,
+      },
+      {
+        status: 429,
+        headers: { "Retry-After": String(limit.retryAfterSeconds) },
+      },
+    );
+  }
+
   const json = await request.json().catch(() => null);
   const parsed = bookingCreateSchema.safeParse(json);
 

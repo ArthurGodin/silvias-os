@@ -30,10 +30,12 @@ export default function PrivacidadePage() {
               </h2>
               <p>
                 Silvia&rsquo;s Hair é nome fantasia operado pela razão social
-                inscrita sob o CNPJ a ser informado neste local. Sediada em
-                Teresina, Piauí. Para fins de proteção de dados pessoais
-                (&ldquo;LGPD&rdquo; — Lei 13.709/2018), atuamos como{" "}
-                <strong>controlador</strong> dos dados de nossos clientes.
+                cadastrada nos órgãos competentes. Sediada em Teresina,
+                Piauí, com duas unidades de atendimento. Para fins de proteção
+                de dados pessoais (&ldquo;LGPD&rdquo; — Lei 13.709/2018),
+                atuamos como <strong>controlador</strong> dos dados de nossas
+                clientes. O CNPJ completo pode ser solicitado pelo e-mail
+                indicado na seção 8.
               </p>
             </div>
 

@@ -29,7 +29,8 @@ const base =
   "select-none whitespace-nowrap";
 
 const sizes: Record<Size, string> = {
-  sm: "text-[10.5px] px-4 h-9",
+  // h-11 (44px) atinge o minimo WCAG 2.5.5 de toque confortavel no mobile.
+  sm: "text-[11px] px-4 h-11",
   md: "text-[11.5px] px-6 h-11",
   lg: "text-[12.5px] px-8 h-14",
 };

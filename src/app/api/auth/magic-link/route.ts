@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { createAnonClient } from "@/lib/supabase/admin";
 import { getEnv } from "@/lib/env";
+import { checkRateLimit, clientKey } from "@/lib/rate-limit";
 
 const bodySchema = z.object({
   email: z.string().email("E-mail inválido"),
@@ -9,6 +10,24 @@ const bodySchema = z.object({
 });
 
 export async function POST(request: Request) {
+  // Rate limit: 5 magic links por IP em 10 min. Supabase ja limita 1 por
+  // email/minuto, mas isso protege contra spray (enumerar emails via brute).
+  const limit = await checkRateLimit(clientKey(request, "magic-link"), {
+    limit: 5,
+    windowSeconds: 600,
+  });
+  if (!limit.allowed) {
+    return NextResponse.json(
+      {
+        error: `Muitas tentativas. Tente de novo em ${Math.ceil(limit.retryAfterSeconds / 60)} minuto(s).`,
+      },
+      {
+        status: 429,
+        headers: { "Retry-After": String(limit.retryAfterSeconds) },
+      },
+    );
+  }
+
   const json = await request.json().catch(() => null);
   const parsed = bodySchema.safeParse(json);
   if (!parsed.success) {

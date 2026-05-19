@@ -40,9 +40,9 @@ export default function TermosPage() {
                   horário marcado.
                 </li>
                 <li>
-                  Cancelamentos com menos de 24 horas podem ensejar cobrança de
-                  taxa equivalente a 30% do valor do serviço, a critério do
-                  estabelecimento.
+                  Cancelamentos com menos de 24 horas podem resultar em
+                  cobrança de uma taxa de até 30% do valor do serviço, a
+                  critério do estabelecimento.
                 </li>
                 <li>
                   Reagendamento sem custo é permitido até 12 horas antes do
