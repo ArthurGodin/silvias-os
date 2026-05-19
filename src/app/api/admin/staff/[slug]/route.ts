@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { requireStaff } from "@/lib/auth/require-staff";
 
 const patchSchema = z.object({
   name: z.string().min(2).optional(),
@@ -18,6 +19,9 @@ export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ slug: string }> },
 ) {
+  const guard = await requireStaff(["admin", "manager"]);
+  if ("response" in guard) return guard.response;
+
   const { slug } = await params;
   const json = await request.json().catch(() => null);
   const parsed = patchSchema.safeParse(json);
@@ -72,6 +76,9 @@ export async function DELETE(
   _request: Request,
   { params }: { params: Promise<{ slug: string }> },
 ) {
+  const guard = await requireStaff(["admin", "manager"]);
+  if ("response" in guard) return guard.response;
+
   const { slug } = await params;
   const supabase = createAdminClient();
 

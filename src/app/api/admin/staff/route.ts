@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { requireStaff } from "@/lib/auth/require-staff";
 
 const createSchema = z.object({
   slug: z
@@ -18,6 +19,9 @@ const createSchema = z.object({
 });
 
 export async function POST(request: Request) {
+  const guard = await requireStaff(["admin", "manager"]);
+  if ("response" in guard) return guard.response;
+
   const json = await request.json().catch(() => null);
   const parsed = createSchema.safeParse(json);
   if (!parsed.success) {
