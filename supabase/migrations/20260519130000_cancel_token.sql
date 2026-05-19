@@ -11,3 +11,8 @@ alter table bookings
   add column cancel_token uuid not null default gen_random_uuid();
 
 create index bookings_cancel_token_idx on bookings(cancel_token);
+
+-- Coluna pra deduplicar o cron de lembrete 24h antes (Cloudflare Cron Trigger).
+-- Quando o cron envia, marca aqui. Reexecucoes do mesmo dia nao reenviam.
+alter table bookings
+  add column reminder_sent_at timestamptz;

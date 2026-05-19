@@ -14,6 +14,11 @@
   "observability": {
     "enabled": true
   },
+  // Lembretes 24h antes sao acionados via cron externo (cron-job.org gratuito)
+  // batendo em GET /api/cron/reminders com header X-Cron-Secret: <CRON_SECRET>.
+  // CF Workers Cron Triggers exigiriam um scheduled() handler customizado que
+  // o OpenNext nao expoe. Cron externo e mais simples, observavel e portavel.
+  // Setup: cron-job.org -> daily 15:00 UTC (12:00 BRT) -> URL acima.
   // Variáveis públicas (não-secrets). Disponíveis tanto em process.env quanto
   // em getCloudflareContext().env. Para secrets (SUPABASE_SERVICE_ROLE_KEY etc),
   // continuar configurando pelo painel Cloudflare → Variables and Secrets.
