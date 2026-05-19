@@ -6,7 +6,9 @@ const patchSchema = z.object({
   name: z.string().min(2).optional(),
   role: z.enum(["admin", "manager", "stylist", "receptionist"]).optional(),
   bio: z.string().max(500).optional(),
-  imageUrl: z.string().url().optional().or(z.literal("")).optional(),
+  imageUrl: z
+    .union([z.string().url(), z.literal(""), z.null()])
+    .optional(),
   credentials: z.array(z.string()).optional(),
   primaryUnitSlug: z.string().optional(),
   isActive: z.coerce.boolean().optional(),

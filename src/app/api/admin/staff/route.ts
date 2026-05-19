@@ -10,7 +10,9 @@ const createSchema = z.object({
   name: z.string().min(2),
   role: z.enum(["admin", "manager", "stylist", "receptionist"]),
   bio: z.string().max(500).optional().default(""),
-  imageUrl: z.string().url().optional().or(z.literal("")).optional(),
+  imageUrl: z
+    .union([z.string().url(), z.literal(""), z.null()])
+    .optional(),
   credentials: z.array(z.string()).optional().default([]),
   primaryUnitSlug: z.string().optional(),
 });
