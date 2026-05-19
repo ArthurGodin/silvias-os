@@ -2,7 +2,16 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Calendar, Home, Users, Scissors, UserCircle, LogOut, TrendingUp } from "lucide-react";
+import {
+  Calendar,
+  Home,
+  Users,
+  Scissors,
+  UserCircle,
+  LogOut,
+  TrendingUp,
+  BarChart3,
+} from "lucide-react";
 import { Wordmark } from "@/components/brand/wordmark";
 import { cn } from "@/lib/utils";
 
@@ -10,6 +19,7 @@ const NAV = [
   { href: "/admin", label: "Dashboard", icon: Home },
   { href: "/admin/agendamentos", label: "Agendamentos", icon: Calendar },
   { href: "/admin/clientes", label: "Clientes", icon: Users },
+  { href: "/admin/analytics", label: "Analytics", icon: BarChart3 },
   { href: "/admin/financeiro", label: "Financeiro", icon: TrendingUp },
   { href: "/admin/servicos", label: "Serviços", icon: Scissors },
   { href: "/admin/equipe", label: "Equipe", icon: UserCircle },
