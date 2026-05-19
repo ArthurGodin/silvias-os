@@ -1,3 +1,5 @@
+export const dynamic = "force-static";
+
 import type { Metadata } from "next";
 import { SectionHeader } from "@/components/ui/section-header";
 import { ImageCard } from "@/components/ui/image-card";

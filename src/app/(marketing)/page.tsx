@@ -1,3 +1,5 @@
+export const dynamic = "force-static";
+
 import { Hero } from "@/components/marketing/hero";
 import { Manifesto } from "@/components/marketing/manifesto";
 import { AtelierPanel } from "@/components/marketing/atelier-panel";

@@ -1,3 +1,5 @@
+export const dynamic = "force-static";
+
 import type { Metadata } from "next";
 import Image from "next/image";
 import { MapPin, Phone, Clock } from "lucide-react";
