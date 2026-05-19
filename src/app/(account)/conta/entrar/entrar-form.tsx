@@ -1,13 +1,15 @@
 "use client";
 
-import { useState } from "react";
-import { useSearchParams } from "next/navigation";
+import { useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { ArrowRight, Check, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { createClient } from "@/lib/supabase/client";
 
 export function EntrarForm() {
+  const router = useRouter();
   const params = useSearchParams();
   const next = params.get("next") ?? "/conta";
   const errorParam = params.get("error");
@@ -15,6 +17,7 @@ export function EntrarForm() {
   const [email, setEmail] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [sent, setSent] = useState(false);
+  const [processingHash, setProcessingHash] = useState(false);
   const [error, setError] = useState<string | null>(
     errorParam === "expired"
       ? "Link expirado. Peça um novo."
@@ -22,6 +25,46 @@ export function EntrarForm() {
         ? "Link inválido. Solicite outro abaixo."
         : null,
   );
+
+  // Supabase às vezes manda magic link no formato implicit (tokens no
+  // fragment #). Como o callback server-side não vê o fragment, processamos
+  // aqui no client: extrai access_token + refresh_token, ativa a sessão e
+  // redireciona.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const hash = window.location.hash;
+    if (!hash || !hash.includes("access_token=")) return;
+
+    const fragment = new URLSearchParams(hash.slice(1));
+    const accessToken = fragment.get("access_token");
+    const refreshToken = fragment.get("refresh_token");
+    if (!accessToken || !refreshToken) return;
+
+    setProcessingHash(true);
+    setError(null);
+
+    (async () => {
+      try {
+        const supabase = createClient();
+        const { error: setErr } = await supabase.auth.setSession({
+          access_token: accessToken,
+          refresh_token: refreshToken,
+        });
+        if (setErr) {
+          setError("Não foi possível ativar a sessão. Solicite outro link.");
+          setProcessingHash(false);
+          return;
+        }
+        // Limpa fragment e redireciona.
+        window.history.replaceState(null, "", window.location.pathname);
+        router.replace(next as never);
+        router.refresh();
+      } catch {
+        setError("Falha ao processar o link. Solicite outro abaixo.");
+        setProcessingHash(false);
+      }
+    })();
+  }, [router, next]);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -61,7 +104,17 @@ export function EntrarForm() {
             acessa direto — seus agendamentos, histórico e preferências.
           </p>
 
-          {sent ? (
+          {processingHash ? (
+            <div className="mt-16 border border-[var(--color-gold)]/50 bg-gold-mist/40 p-8 max-w-md">
+              <Check className="h-6 w-6 text-gold-deep" />
+              <p className="mt-4 font-[family-name:var(--font-display)] italic text-[1.5rem]">
+                Entrando na sua conta…
+              </p>
+              <p className="mt-3 text-[14px] text-ink-600 leading-[1.6]">
+                Estamos validando seu link e te redirecionando.
+              </p>
+            </div>
+          ) : sent ? (
             <div className="mt-16 border border-[var(--color-gold)]/50 bg-gold-mist/40 p-8">
               <Check className="h-6 w-6 text-gold-deep" />
               <p className="mt-4 font-[family-name:var(--font-display)] italic text-[1.5rem]">
