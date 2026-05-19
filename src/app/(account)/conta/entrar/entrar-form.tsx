@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { ArrowRight, Check, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,7 +9,6 @@ import { Label } from "@/components/ui/label";
 import { createClient } from "@/lib/supabase/client";
 
 export function EntrarForm() {
-  const router = useRouter();
   const params = useSearchParams();
   const next = params.get("next") ?? "/conta";
   const errorParam = params.get("error");
@@ -29,7 +28,7 @@ export function EntrarForm() {
   // Supabase às vezes manda magic link no formato implicit (tokens no
   // fragment #). Como o callback server-side não vê o fragment, processamos
   // aqui no client: extrai access_token + refresh_token, ativa a sessão e
-  // redireciona.
+  // redireciona com full reload (pra cookie chegar no middleware).
   useEffect(() => {
     if (typeof window === "undefined") return;
     const hash = window.location.hash;
@@ -51,20 +50,27 @@ export function EntrarForm() {
           refresh_token: refreshToken,
         });
         if (setErr) {
-          setError("Não foi possível ativar a sessão. Solicite outro link.");
+          console.error("[entrar] setSession error:", setErr);
+          setError(
+            "Não foi possível ativar a sessão. Solicite outro link abaixo.",
+          );
           setProcessingHash(false);
           return;
         }
-        // Limpa fragment e redireciona.
-        window.history.replaceState(null, "", window.location.pathname);
-        router.replace(next as never);
-        router.refresh();
-      } catch {
+        // Pequena pausa pra garantir que o cookie de sessão foi escrito antes
+        // do próximo request server-side.
+        await new Promise((r) => setTimeout(r, 200));
+        // Full reload: window.location força a próxima request a enviar o
+        // cookie de sessão recém-criado, ao contrário do router.replace que
+        // mantém a SPA em memória.
+        window.location.href = next;
+      } catch (err) {
+        console.error("[entrar] hash flow exception:", err);
         setError("Falha ao processar o link. Solicite outro abaixo.");
         setProcessingHash(false);
       }
     })();
-  }, [router, next]);
+  }, [next]);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
